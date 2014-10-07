@@ -2,7 +2,10 @@
 S'A'
 p1
 I5
-sS'B'
+sS'c'
 p2
+I3
+sS'B'
+p3
 I5
 s.
