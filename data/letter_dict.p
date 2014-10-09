@@ -8,4 +8,10 @@ I3
 sS'B'
 p3
 I5
+sS'E'
+p4
+I4
+sS'D'
+p5
+I4
 s.
