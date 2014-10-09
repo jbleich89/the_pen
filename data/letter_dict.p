@@ -2,9 +2,9 @@
 S'A'
 p1
 I5
-sS'c'
+sS'C'
 p2
-I3
+I6
 sS'B'
 p3
 I5
@@ -14,4 +14,7 @@ I4
 sS'D'
 p5
 I4
+sS'c'
+p6
+I3
 s.
