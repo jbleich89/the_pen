@@ -4,6 +4,7 @@
 HOST = "localhost"
 PORT = 4223
 UID = "6K8nHd" # Change to your UID
+SAMPLE_RATE = 30 
 
 from tinkerforge.ip_connection import IPConnection
 from tinkerforge.brick_imu import IMU
@@ -29,6 +30,7 @@ def cb_quaternion_data(x,y,z,w):
     w1.writerow(row)
 
 def collect_data(suffix):
+    global SAMPLE_RATE
     global w1
     global row
     print "Now recording " + suffix
@@ -40,9 +42,9 @@ def collect_data(suffix):
     # Don't use device before ipcon is connected
 
     # Set period for quaternion callback to 1s
-    imu.set_all_data_period(10)
-    imu.set_orientation_period(10)
-    imu.set_quaternion_period(10)    
+    imu.set_all_data_period(SAMPLE_RATE)
+    imu.set_orientation_period(SAMPLE_RATE)
+    imu.set_quaternion_period(SAMPLE_RATE)    
    
     f1 = open('data/letters/all_data_'+suffix+'.csv', 'wb')
     w1 = csv.writer(f1)
