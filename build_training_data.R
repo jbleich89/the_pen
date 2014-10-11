@@ -5,18 +5,68 @@ library(signal)
 library(dtw)
 ##GLOBAL CONSTANTS
 NUM_PCS = 2
-COLS_TO_KEEP = 1:17
-FILTER_NUM = 5
+COLS_TO_KEEP = c(1:3,7:9,18,19)
+FILTER_NUM = 10
 ACCEL_COLS  = 1:3
 MAG_COLS  = 4:6
+ROT_COLS = 11:13
 
 training = buildTrainingAlphabet(list.files())
-
 
 plot(training[[21]][,1], type = "l")
 plot(training[[23]][,1], type = "l")
 file_list = list.files()
 labels[11]
+
+plot(raw_dat_list[[21]][,11], type = "l")
+plot(raw_dat_list[[23]][,11], type = "l")
+
+
+plot(raw_dat_list_fixed_rot[[21]][,12], type = "l")
+plot(raw_dat_list_fixed_rot[[23]][,12], type = "l")
+
+q1_base = raw_dat_list[[21]][1, 14:17]
+q1 = t(apply(raw_dat_list[[21]][,14:17], 1, quat_cb, q1_base))
+q2_base = raw_dat_list[[23]][1, 14:17]
+q2 = t(apply(raw_dat_list[[23]][,14:17], 1, quat_cb, q2_base))
+
+plot(q1[,3], type = "l")
+plot(q2[,1], type = "l")
+
+z1 = read.csv("test_data_Z_1.csv", F)
+z2 = read.csv("test_data_Z_2.csv", F)
+z3 = read.csv("test_data_Z_3.csv", F)
+
+plot(z1[,18], type= "l")
+plot(z2[,20], type= "l")
+plot(z3[,1], type= "l")
+
+
+
+
+
+
+
+list.files()
+plot(dat_oriented[[16]][,1], type = "l")
+plot(dat_oriented[[18]][,1], type = "l")
+
+plot(raw_dat_list[[21]][,1], type = "l")
+plot(raw_dat_list[[22]][,1], type = "l")
+
+e1 = raw_dat_list_fixed_accel[[21]]
+e2 = raw_dat_list_fixed_accel[[22]]
+plot(e1[,1], type = "l")
+plot(e2[,1], type = "l")
+
+e1_rp = t(sapply(1 : nrow(e1), function(s) getRollandPitch(e1[s,1:3], e1[s,4:6])))
+e2_rp = t(sapply(1 : nrow(e2), function(s) getRollandPitch(e2[s,1:3], e2[s,4:6])))
+
+
+
+
+plot(e1_rp[,2], type = "l")
+plot(e2_rp[,2], type = "l")
 
 buildTrainingAlphabet = function(file_list){
   training_list = lapply(file_list, getTrainingData) ##get all of the PCA data
@@ -24,11 +74,14 @@ buildTrainingAlphabet = function(file_list){
   labels = sapply(training_list, function(s) s$label)
   raw_dat_list = lapply(training_list, function(s) s$raw_dat)  
   ##fix the acccelerations
-  raw_dat_list_fixed_accel = orientAcceleration(raw_dat_list)
+  raw_dat_list_fixed_rot = orientRotation(raw_dat_list)
+  raw_dat_list_fixed_rot_accel = orientAcceleration(raw_dat_list)
+  raw_dat_list_fixed_rot_accel_rp = lapply(raw_dat_list_fixed_rot_accel, getFullRollandPitch)
   ##do the pca
-  raw_dat_list_fixed_accel_smooth = lapply(raw_dat_list_fixed_accel, smoothData, FILTER_NUM)
+  raw_dat_list_smooth = lapply(raw_dat_list_fixed_rot_accel_rp, smoothData, FILTER_NUM)
+  red_dat_list = lapply(raw_dat_list_smooth, function(s) s[,COLS_TO_KEEP])
   
-  pc_dat = lapply(raw_dat_list_fixed_accel_smooth, getPCA)
+  pc_dat = lapply(red_dat_list, getPCA)
   #reorient the pca
   dat_oriented = unlist(lapply(unique(labels), orientPCDirection, pc_dat, labels), recursive = FALSE)
   dat_oriented
@@ -86,7 +139,11 @@ fixFullPCMatrix = function(test_mat, ref_mat){
 orientAcceleration = function(dat_list){
   ##Reorients all of the accelerations to earth frame
   new_accel_list = lapply(dat_list, function(s) fixAcceleration(s[, ACCEL_COLS], s[, MAG_COLS])) ##BAD!
-  lapply(1 : length(dat_list), function(s) dat_list[[s]][ ,ACCEL_COLS] = new_accel_list[[s]])
+  #lapply(1 : length(dat_list), function(s) dat_list[[s]][ ,ACCEL_COLS] = new_accel_list[[s]])
+  for(i in 1 : length(dat_list)){
+    dat_list[[i]][,ACCEL_COLS] = new_accel_list[[i]]
+  }
+  dat_list
 }
 
 
@@ -94,6 +151,22 @@ fixAcceleration = function(accel_vec, mag_vec){
   Rmat = createRotationMatrix(data.matrix(accel_vec[1,]), data.matrix(mag_vec[1, ])) ##assumes person does not rotate pen once writing letter
   new_accel = t(apply(accel_vec, 1, function(s) Rmat %*% s))
   new_accel
+}
+
+orientRotation = function(dat_list){
+  ##Reorients all of the accelerations to earth frame
+  new_rot_list = lapply(dat_list, function(s) fixRotation(s[, ROT_COLS], s[, ACCEL_COLS], s[, MAG_COLS])) ##BAD!
+  #lapply(1 : length(dat_list), function(s) dat_list[[s]][ ,ROT_COLS] = new_rot_list[[s]])
+  for(i in 1 : length(dat_list)){
+    dat_list[[i]][,ROT_COLS] = new_rot_list[[i]]
+  }
+  dat_list
+}
+
+fixRotation = function(rot_vec, accel_vec, mag_vec){
+  Rmat = createRotationMatrix(data.matrix(accel_vec[1,]), data.matrix(mag_vec[1, ])) ##assumes person does not rotate pen once writing letter
+  new_rot = t(apply(rot_vec, 1, function(s) Rmat %*% s))
+  new_rot
 }
 
 
@@ -127,6 +200,23 @@ CrossProduct3D <- function(x, y, i=1:3) {
   # as long as we treat the indices cyclically.
   return (x[Index3D(i + 1)] * y[Index3D(i + 2)] -
             x[Index3D(i + 2)] * y[Index3D(i + 1)])
+}
+
+getFullRollandPitch = function(dat){
+  roll_pitch_mat = t(sapply(1 : nrow(dat), function(s) getRowRollandPitch(dat[s, ACCEL_COLS], dat[s, MAG_COLS])))
+  cbind(dat, roll_pitch_mat)
+}
+
+getRowRollandPitch = function(accel_vec, mag_vec){
+  Rmat = createRotationMatrix(as.numeric(accel_vec), as.numeric(mag_vec))
+  ugy = Rmat[3, 2]
+  ugz = Rmat[3, 3]
+  ugx = Rmat[3, 1]
+  roll = -1 * asin(ugy)
+  pitch = -1 * asin(ugx)
+  rp_vec = c(roll, pitch)
+  names(rp_vec) = c("roll", "pitch")
+  rp_vec
 }
 
 
